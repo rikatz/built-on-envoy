@@ -1,0 +1,18 @@
+**
+!LICENSE
+!NOTICE
+!downstream/
+!downstream/waf/
+!downstream/waf/**
+!extensions/
+!extensions/composer/
+!extensions/composer/**
+
+# Keep local credentials and generated build state out of the root-context build.
+**/.env
+**/.env.*
+**/.local
+**/.aws/**
+**/.git/**
+**/build/**
+**/target/**

@@ -1,0 +1,49 @@
+# Copyright 2026 the contributors to the Coraza WAF downstream build.
+# SPDX-License-Identifier: Apache-2.0
+# Modified in this fork to build and package the Coraza WAF dynamic module.
+
+ARG GO_VERSION=1.27.1
+ARG ENVOY_VERSION=v1.38.0
+FROM golang:${GO_VERSION} AS builder
+
+ARG WAF_BUILD_TAGS
+ARG SOURCE_REPO
+ARG BUILT_REVISION
+ARG RELEASE_VERSION=dev
+ARG BUILD_TREE_STATE
+ARG UPSTREAM_BASE
+ARG UPSTREAM_BASE_TAG
+ARG ENVOY_VERSION=v1.38.0
+
+WORKDIR /workspace
+COPY . .
+WORKDIR /workspace/downstream/waf
+
+RUN test -n "$BUILT_REVISION" && test -n "$UPSTREAM_BASE" && \
+    go mod download all && mkdir -p /out && \
+    CGO_ENABLED=1 GOFLAGS="-tags=${WAF_BUILD_TAGS}" go build -trimpath -buildmode=c-shared -o /out/libcoraza_waf.so .
+
+RUN mkdir -p /artifact/licenses/built-on-envoy && \
+    install -m 0644 /workspace/LICENSE /artifact/licenses/built-on-envoy/LICENSE && \
+    install -m 0644 /workspace/downstream/waf/ATTRIBUTION.md /artifact/licenses/built-on-envoy/ATTRIBUTION.md && \
+    install -m 0644 /workspace/downstream/waf/UPSTREAM_BASE /artifact/licenses/built-on-envoy/UPSTREAM_BASE && \
+    cp -R /workspace/downstream/waf/THIRD_PARTY_NOTICES/. /artifact/licenses/built-on-envoy/ && \
+    if [ -f /workspace/NOTICE ]; then install -m 0644 /workspace/NOTICE /artifact/licenses/built-on-envoy/NOTICE; fi && \
+    { \
+      if [ -n "$SOURCE_REPO" ]; then printf 'Source repository: %s\n' "$SOURCE_REPO"; fi; \
+      printf 'Fork release version: %s\nBuilt revision: %s\nBuild tree state: %s\nEnvoy compatibility version: %s\nUpstream repository: https://github.com/tetratelabs/built-on-envoy\nUpstream base revision: %s\nUpstream base tag: %s\nUnofficial derivative: true\n' \
+        "$RELEASE_VERSION" "$BUILT_REVISION" "$BUILD_TREE_STATE" "$ENVOY_VERSION" "$UPSTREAM_BASE" "$UPSTREAM_BASE_TAG"; \
+    } > /artifact/licenses/built-on-envoy/BUILD_PROVENANCE.txt && \
+    chmod -R a+rX /artifact/licenses
+
+FROM scratch AS final
+ARG BUILT_REVISION
+ARG RELEASE_VERSION=dev
+
+LABEL org.opencontainers.image.revision="${BUILT_REVISION}" \
+      org.opencontainers.image.version="${RELEASE_VERSION}" \
+      org.opencontainers.image.title="coraza-waf" \
+      io.built-on-envoy.project.license="Apache-2.0"
+
+COPY --from=builder /out/libcoraza_waf.so /
+COPY --from=builder /artifact/licenses/built-on-envoy/ /usr/share/licenses/built-on-envoy/

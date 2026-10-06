@@ -1,0 +1,52 @@
+# Copyright 2026 the contributors to the Coraza WAF downstream build.
+# SPDX-License-Identifier: Apache-2.0
+# See the repository LICENSE.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: coraza-waf-demo-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: coraza-waf-demo-backend
+  template:
+    metadata:
+      labels:
+        app: coraza-waf-demo-backend
+    spec:
+      containers:
+        - name: echo
+          image: registry.k8s.io/gateway-api/conformance/echo-basic:v0.2.0
+          args: [--port=3000]
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: coraza-waf-demo-backend
+spec:
+  selector:
+    app: coraza-waf-demo-backend
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: coraza-waf-demo
+spec:
+  parentRefs:
+    - name: coraza-waf-demo
+  hostnames:
+    - waf-demo.example.com
+  rules:
+    - backendRefs:
+        - name: coraza-waf-demo-backend
+          port: 3000

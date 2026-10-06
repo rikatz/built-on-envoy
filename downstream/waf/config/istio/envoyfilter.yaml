@@ -1,0 +1,40 @@
+# Copyright 2026 the contributors to the Coraza WAF downstream build.
+# SPDX-License-Identifier: Apache-2.0
+# See the repository LICENSE.
+
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: coraza-waf-demo
+spec:
+  workloadSelector:
+    labels:
+      gateway.networking.k8s.io/gateway-name: coraza-waf-demo
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: GATEWAY
+        listener:
+          filterChain:
+            filter:
+              name: envoy.filters.network.http_connection_manager
+              subFilter:
+                name: envoy.filters.http.router
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.dynamic_modules
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.http.dynamic_modules.v3.DynamicModuleFilter
+            dynamic_module_config:
+              name: coraza_waf
+            filter_name: coraza-waf
+            filter_config:
+              "@type": type.googleapis.com/google.protobuf.Struct
+              value:
+                directives:
+                  - Include @coraza.conf
+                  - Include @crs-setup.conf
+                  - Include @owasp_crs/*.conf
+                  - Include /etc/coraza/rules/demo-rules.conf
+                  - SecRuleEngine On
