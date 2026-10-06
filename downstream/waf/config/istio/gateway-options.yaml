@@ -1,0 +1,46 @@
+# Copyright 2026 the contributors to the Coraza WAF downstream build.
+# SPDX-License-Identifier: Apache-2.0
+# See the repository LICENSE.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coraza-waf-gateway-options
+data:
+  deployment: |
+    spec:
+      template:
+        spec:
+          securityContext:
+            # Match the Istio proxy's default GID so it can write to the scratch emptyDir.
+            fsGroup: 1337
+          containers:
+            - name: istio-proxy
+              env:
+                - name: ENVOY_DYNAMIC_MODULES_SEARCH_PATH
+                  value: /usr/lib/envoy/dynamic-modules
+                - name: TMPDIR
+                  value: /tmp
+                - name: GODEBUG
+                  value: cgocheck=0
+              volumeMounts:
+                - name: coraza-waf-tmp
+                  mountPath: /tmp
+                - name: coraza-waf-module
+                  mountPath: /usr/lib/envoy/dynamic-modules
+                  readOnly: true
+                - name: coraza-waf-rules
+                  mountPath: /etc/coraza/rules
+                  readOnly: true
+          volumes:
+            - name: coraza-waf-tmp
+              emptyDir:
+                sizeLimit: 1Gi
+            - name: coraza-waf-module
+              image:
+                # Replace with the published library-only OCI artifact reference.
+                reference: docker.io/rpkatz/waf-dynamic:v1.38.1
+                pullPolicy: IfNotPresent
+            - name: coraza-waf-rules
+              configMap:
+                name: coraza-waf-demo-rules

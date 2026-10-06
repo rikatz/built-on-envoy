@@ -1,0 +1,23 @@
+# Copyright 2026 the contributors to the Coraza WAF downstream build.
+# SPDX-License-Identifier: Apache-2.0
+# See the repository LICENSE.
+
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: coraza-waf-demo
+spec:
+  gatewayClassName: istio
+  infrastructure:
+    parametersRef:
+      group: ""
+      kind: ConfigMap
+      name: coraza-waf-gateway-options
+  listeners:
+    - name: http
+      hostname: waf-demo.example.com
+      port: 80
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: Same
